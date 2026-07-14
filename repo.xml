@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <extensions>
   <plugins>
-    <plugin name="RadioHelsinki" version="1.1.0" minTarget="8.0" maxTarget="*">
+    <plugin name="RadioHelsinki" version="1.1.0" minTarget="8.2" maxTarget="*">
       <title lang="EN">Radio Helsinki</title>
       <title lang="FI">Radio Helsinki</title>
       <desc lang="EN">Browse and play Radio Helsinki on-demand programs, podcasts and clips.</desc>

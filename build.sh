@@ -14,11 +14,14 @@ cd "$(dirname "$0")"
 
 PLUGIN=RadioHelsinki
 VERSION=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' "$PLUGIN/install.xml" | head -1)
+MIN_TARGET=$(sed -n 's:.*<minVersion>\(.*\)</minVersion>.*:\1:p' "$PLUGIN/install.xml" | head -1)
 
 if [[ -z "$VERSION" ]]; then
 	echo "error: no <version> in $PLUGIN/install.xml" >&2
 	exit 1
 fi
+
+MIN_TARGET=${MIN_TARGET:-8.0}
 
 # Default to serving straight off this machine — the dev loop is a local
 # `python3 -m http.server`, not a round trip through GitHub.
@@ -37,7 +40,7 @@ cat > repo.xml <<XML
 <?xml version="1.0" encoding="utf-8"?>
 <extensions>
   <plugins>
-    <plugin name="$PLUGIN" version="$VERSION" minTarget="8.0" maxTarget="*">
+    <plugin name="$PLUGIN" version="$VERSION" minTarget="$MIN_TARGET" maxTarget="*">
       <title lang="EN">Radio Helsinki</title>
       <title lang="FI">Radio Helsinki</title>
       <desc lang="EN">Browse and play Radio Helsinki on-demand programs, podcasts and clips.</desc>
