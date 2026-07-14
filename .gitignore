@@ -1,0 +1,13 @@
+# OS / editor noise
+.DS_Store
+
+# local drafts, never committed
+forum-post.md
+
+# caveman-mode backups
+*.original.md
+
+# python bytecode (if any tooling lands here)
+__pycache__/
+*.pyc
+*.zip

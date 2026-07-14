@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<extension>
+	<id>RadioHelsinki</id>
+	<name>PLUGIN_RADIOHELSINKI</name>
+	<module>Plugins::RadioHelsinki::Plugin</module>
+	<version>1.0.0</version>
+	<description>PLUGIN_RADIOHELSINKI_DESC</description>
+	<creator>Miska</creator>
+	<category>musicservices</category>
+	<icon>plugins/RadioHelsinki/html/images/icon.png</icon>
+	<link>https://github.com/patapovich/rh-ondemand-lyrion</link>
+
+	<targetApplication>
+		<id>Lyrion Music Server</id>
+		<minVersion>8.0</minVersion>
+		<maxVersion>*</maxVersion>
+	</targetApplication>
+
+</extension>

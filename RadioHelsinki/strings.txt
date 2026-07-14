@@ -1,0 +1,106 @@
+PLUGIN_RADIOHELSINKI
+	EN	Radio Helsinki
+	FI	Radio Helsinki
+
+PLUGIN_RADIOHELSINKI_DESC
+	EN	Browse and play Radio Helsinki on-demand programs, podcasts and clips.
+	FI	Selaa ja kuuntele Radio Helsingin ohjelmia, podcasteja ja klippejä.
+
+PLUGIN_RADIOHELSINKI_LATEST_ONDEMAND
+	EN	Latest episodes
+	FI	Uusimmat jaksot
+
+PLUGIN_RADIOHELSINKI_LATEST_PODCASTS
+	EN	Latest podcasts
+	FI	Uusimmat podcastit
+
+PLUGIN_RADIOHELSINKI_POPULAR_PODCASTS
+	EN	Popular podcasts
+	FI	Suositut podcastit
+
+PLUGIN_RADIOHELSINKI_PROGRAMS
+	EN	Programs
+	FI	Ohjelmat
+
+PLUGIN_RADIOHELSINKI_ARCHIVE
+	EN	Archive
+	FI	Arkisto
+
+PLUGIN_RADIOHELSINKI_SEARCH
+	EN	Search programs
+	FI	Hae ohjelmia
+
+PLUGIN_RADIOHELSINKI_SECTION_EPISODES
+	EN	Episodes
+	FI	Jaksot
+
+PLUGIN_RADIOHELSINKI_SECTION_PODCASTS
+	EN	Podcasts
+	FI	Podcastit
+
+PLUGIN_RADIOHELSINKI_SECTION_CLIPS
+	EN	Clips
+	FI	Klipit
+
+PLUGIN_RADIOHELSINKI_PLAY_NEWEST
+	EN	Play the latest episode
+	FI	Toista uusin jakso
+
+PLUGIN_RADIOHELSINKI_PLAY_EPISODE
+	EN	Play this episode
+	FI	Toista jakso
+
+PLUGIN_RADIOHELSINKI_IN_LIBRARY
+	EN	In your library
+	FI	Kirjastossa
+
+PLUGIN_RADIOHELSINKI_ON_SPOTIFY
+	EN	On Spotify
+	FI	Spotifyssa
+
+PLUGIN_RADIOHELSINKI_NO_HITS
+	EN	No matches
+	FI	Ei osumia
+
+# The DOW_1..DOW_7 tokens are referenced dynamically in API.pm (_dateLong builds
+# "PLUGIN_RADIOHELSINKI_DOW_$wday"), so a grep for the full token name finds nothing.
+# They are NOT unused — removing them breaks the weekday prefix on every episode row.
+PLUGIN_RADIOHELSINKI_DOW_1
+	EN	Mon
+	FI	ma
+
+PLUGIN_RADIOHELSINKI_DOW_2
+	EN	Tue
+	FI	ti
+
+PLUGIN_RADIOHELSINKI_DOW_3
+	EN	Wed
+	FI	ke
+
+PLUGIN_RADIOHELSINKI_DOW_4
+	EN	Thu
+	FI	to
+
+PLUGIN_RADIOHELSINKI_DOW_5
+	EN	Fri
+	FI	pe
+
+PLUGIN_RADIOHELSINKI_DOW_6
+	EN	Sat
+	FI	la
+
+PLUGIN_RADIOHELSINKI_DOW_7
+	EN	Sun
+	FI	su
+
+PLUGIN_RADIOHELSINKI_EMPTY
+	EN	Nothing here
+	FI	Ei sisältöä
+
+PLUGIN_RADIOHELSINKI_ERROR
+	EN	Could not reach Radio Helsinki
+	FI	Radio Helsinkiin ei saatu yhteyttä
+
+PLUGIN_RADIOHELSINKI_NO_MATCH
+	EN	No programs found
+	FI	Ohjelmia ei löytynyt
