@@ -132,3 +132,11 @@ PLUGIN_RADIOHELSINKI_NO_RECENT
 PLUGIN_RADIOHELSINKI_EPISODE_INFO
 	EN	Episode info
 	FI	Jakson tiedot
+
+PLUGIN_RADIOHELSINKI_TRACKLIST
+	EN	Tracklist
+	FI	Kappalelista
+
+PLUGIN_RADIOHELSINKI_TRACKLIST_DESC
+	EN	Find a track in your library or on Spotify
+	FI	Etsi kappale kirjastosta tai Spotifysta

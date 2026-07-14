@@ -489,13 +489,37 @@ sub _episodeMenus {
 
 		my $tracks = defined $key ? $playlists->{$key} : [];
 
+		# The broadcast's tracklist, one level down. It used to sit inline under
+		# the play rows, which read as one confusing flat list — 20 rows of
+		# artists with no hint that tapping one searches the library/Spotify
+		# rather than playing anything.
+		my @trackSection = @$tracks
+			? ( {
+				name  => cstring( $client, 'PLUGIN_RADIOHELSINKI_TRACKLIST' ) . ' (' . scalar(@$tracks) . ')',
+				line1 => cstring( $client, 'PLUGIN_RADIOHELSINKI_TRACKLIST' ) . ' (' . scalar(@$tracks) . ')',
+				line2 => cstring( $client, 'PLUGIN_RADIOHELSINKI_TRACKLIST_DESC' ),
+				type  => 'link',
+				image => $episode->{image} || $icon,
+				items => [ map { Plugins::RadioHelsinki::Search::trackItem( $client, $_, $prog ) } @$tracks ],
+			} )
+			: ();
+
 		# Half-listened episodes get a resume row above the play row, which is then
 		# relabelled so "from the beginning" is an explicit choice, not a surprise.
 		my @resume = _resumeItem( $client, $episode );
 
+		# Lead with the programme, same style as the cross-programme lists — the
+		# name doubles as the submenu header, where a bare date says nothing
+		# about what it belongs to. Skipped when the episode's own name already
+		# carries it (some clips do). \x{2013} escape — no `use utf8` here.
+		my $name =
+			length( $prog->{title} || '' ) && index( $episode->{name}, $prog->{title} ) < 0
+			? "$prog->{title} \x{2013} $episode->{name}"
+			: $episode->{name};
+
 		push @episodes, {
-			name  => $episode->{name},
-			line1 => $episode->{name},
+			name  => $name,
+			line1 => $name,
 			line2 => $episode->{line2},
 			type  => 'link',
 			image => $episode->{image} || $icon,
@@ -507,7 +531,7 @@ sub _episodeMenus {
 				_playItem( $client, $episode, cstring( $client,
 					@resume ? 'PLUGIN_RADIOHELSINKI_PLAY_FROM_BEGINNING'
 							: 'PLUGIN_RADIOHELSINKI_PLAY_EPISODE' ) ),
-				map { Plugins::RadioHelsinki::Search::trackItem( $client, $_, $prog ) } @$tracks,
+				@trackSection,
 			],
 		};
 	}
@@ -539,10 +563,13 @@ sub _playItem {
 
 	my %item = %$episode;
 
-	delete @item{qw(items _begin _end)};
+	# No line2: these rows live inside the episode's own submenu, whose header
+	# already names the episode — repeating it under every action row is noise.
+	# The one caller that needs a subtitle (the "play newest" shortcut, which
+	# sits outside the submenu) sets its own.
+	delete @item{qw(items _begin _end line2)};
 
 	$item{name} = $item{line1} = "\x{25B6} $label";
-	$item{line2}      = $episode->{name};
 	$item{playcontrol} = 'play';
 
 	return \%item;
@@ -568,11 +595,11 @@ sub _resumeItem {
 
 	my %item = %$episode;
 
-	delete @item{qw(items _begin _end description)};
+	# line2 dropped for the same reason as in _playItem below.
+	delete @item{qw(items _begin _end description line2)};
 
 	$item{name} = $item{line1} =
 		"\x{25B6} " . cstring( $client, 'PLUGIN_RADIOHELSINKI_PLAY_FROM_POSITION_X', $t );
-	$item{line2}       = $episode->{name};
 	$item{playcontrol} = 'play';
 	$item{url} = $item{play} = Plugins::RadioHelsinki::API::wrapUrl(
 		Plugins::RadioHelsinki::API::plainUrl( $episode->{url} ), $pos );

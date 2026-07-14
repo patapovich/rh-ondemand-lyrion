@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <extensions>
   <plugins>
-    <plugin name="RadioHelsinki" version="1.1.1" minTarget="8.2" maxTarget="*">
+    <plugin name="RadioHelsinki" version="1.1.2" minTarget="8.2" maxTarget="*">
       <title lang="EN">Radio Helsinki</title>
       <title lang="FI">Radio Helsinki</title>
       <desc lang="EN">Browse and play Radio Helsinki on-demand programs, podcasts and clips.</desc>
@@ -9,8 +9,8 @@
       <creator>Miska</creator>
       <category>musicservices</category>
       <link>https://github.com/patapovich/rh-ondemand-lyrion</link>
-      <url>https://github.com/patapovich/rh-ondemand-lyrion/releases/download/v1.1.1/RadioHelsinki-1.1.1.zip</url>
-      <sha>9a54f4bf5ae67e24941f597b51ce57b5f0b02c5f</sha>
+      <url>https://github.com/patapovich/rh-ondemand-lyrion/releases/download/v1.1.2/RadioHelsinki-1.1.2.zip</url>
+      <sha>4bc0ff021006947459ebab5248ef31c1b6b36010</sha>
     </plugin>
   </plugins>
   <details>

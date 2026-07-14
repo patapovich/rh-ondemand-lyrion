@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.2 — 2026-07-14
+
+- The resume/play rows inside an episode's submenu no longer repeat the
+  episode name as their subtitle — the submenu header already says it, so it
+  used to appear three times.
+- Episode rows inside a programme's own menu now lead with the programme name
+  ("Rakkaudesta – su 12.07.2026"), so the submenu header names the programme
+  too, matching the cross-programme lists.
+- The broadcast tracklist moved into its own "Kappalelista (N)" submenu with a
+  hint of what it does (find a track in your library or on Spotify) — it used
+  to sit inline under the play rows as one long, confusing list.
+
 ## 1.1.1 — 2026-07-14
 
 - Tapping a half-listened episode in Kesken, Viimeksi kuunnellut or the flat
