@@ -26,7 +26,13 @@ use constant META_TTL  => 30 * 86400;
 
 # Bump to invalidate every cached menu, e.g. after changing what an item holds.
 # Without this a bad payload would sit in the cache for a day after the fix shipped.
-use constant CACHE_VER => 10;
+use constant CACHE_VER => 13;
+
+# Station logo bundled with the plugin (600x600, TuneIn's copy of the round RH
+# mark), for the handful of programs the station publishes no artwork for. A
+# relative LMS path works everywhere a cover does — the server resizes it and
+# the apps prefix the server address, same as core station icons.
+use constant LOGO => 'plugins/RadioHelsinki/html/images/logo.jpg';
 
 # The site 504s under load, so nothing is fetched more often than it has to be.
 use constant TTL_PROGRAMS => 24 * 3600;
@@ -50,9 +56,126 @@ sub _ck { 'rh' . CACHE_VER . '_' . $_[0] }
 
 # Keys within the dedicated metadata cache. Not versioned: this data has to outlive
 # plugin updates so a favourited or playing track keeps its metadata across releases.
+# All of them are keyed by the PLAIN https audio URL — never the wrapped form below.
 sub metaKey  { 'meta_'  . $_[0] }               # per audio URL
 sub tokenKey { 'token_' . lc( $_[0] ) }         # per program, keyed by URL filename token
 sub progKey  { 'prog_'  . $_[0] }               # per program, by id
+sub posKey   { 'pos_'   . $_[0] }               # per audio URL: saved listening position
+
+# ---------------------------------------------------------------------------
+# The radiohelsinki:// wrapper (resume support)
+# ---------------------------------------------------------------------------
+#
+# Episode URLs are wrapped as radiohelsinki://<https-url>, optionally with a
+# trailing {from=N} marker, so ProtocolHandler.pm gets the play-lifecycle hooks
+# (onStop to save the position, scanUrl/getNextTrack to seek back to it) that a
+# plain https URL never sees. Same pattern, and same wrap format, as the bundled
+# Podcast plugin. The marker is transient: scanUrl re-wraps to the clean form, so
+# favourites and playlists never fossilise an offset.
+
+sub wrapUrl {
+	my ( $url, $from ) = @_;
+	return 'radiohelsinki://' . $url . ( defined $from ? "{from=$from}" : '' );
+}
+
+# List context: ($plainUrl, $startTime); $startTime undef when no marker.
+# Host-agnostic on purpose — the archive spans five storage hosts.
+sub unwrapUrl { return shift =~ m|^radiohelsinki://([^{]+)(?:{from=(\d+)}$)?| }
+
+# Either form in, plain https URL out — the normaliser every cache key goes through.
+sub plainUrl { my ($p) = unwrapUrl( $_[0] ); return $p || $_[0] }
+
+# Saved listening positions, int seconds. In the non-purging namespace, unversioned,
+# same as meta_: half-listened programmes must survive plugin updates.
+#
+# Alongside each position two URL indexes are maintained, each under a single
+# key — DbCache hashes its keys to integers, so cache entries cannot be
+# enumerated, and without the indexes there would be no way to build the Kesken
+# or Viimeksi kuunnellut menus. (The bundled Podcast plugin keeps its equivalent
+# list in memory and only writes it to a pref at shutdown; keeping ours in the
+# same persistent cache as the positions means a crash loses nothing.)
+#
+#   kesken: everything with a saved position; entries leave with the position.
+#   recent: everything that started playing, regardless of how it ended.
+#
+# Both are { plainUrl => epoch } hashrefs, capped at INDEX_MAX by dropping the
+# oldest.
+use constant INDEX_MAX => 50;
+
+sub keskenKey { 'kesken' }
+sub recentKey { 'recent' }
+
+sub getPosition { $metacache->get( posKey( plainUrl( $_[0] ) ) ) }
+
+sub setPosition {
+	my ( $url, $pos ) = @_;
+
+	$url = plainUrl($url);
+
+	$metacache->set( posKey($url), $pos, META_TTL );
+	_indexAdd( keskenKey(), $url );
+}
+
+sub clearPosition {
+	my $url = plainUrl( $_[0] );
+
+	$metacache->remove( posKey($url) );
+	_indexRemove( keskenKey(), $url );
+}
+
+# Called from the handler's onStream at every stream start; refreshing the
+# timestamp on replays is exactly what keeps the list in recency order.
+sub recentAdd { _indexAdd( recentKey(), plainUrl( $_[0] ) ) }
+
+# Plain URLs of half-listened episodes, newest-stopped first. Prunes entries whose
+# position has expired (the positions carry their own 30-day TTL; the index entry
+# must not outlive them) and writes the pruned index back only when it changed.
+sub getInProgress {
+	my $idx = $metacache->get( keskenKey() ) or return [];
+
+	my %live = map { $_ => $idx->{$_} } grep { defined getPosition($_) } keys %$idx;
+
+	$metacache->set( keskenKey(), \%live, META_TTL ) if keys %live != keys %$idx;
+
+	return [ sort { $live{$b} <=> $live{$a} } keys %live ];
+}
+
+# Plain URLs of recently played episodes, newest first. Nothing to prune: an
+# entry stays until the cap pushes it out.
+sub getRecent {
+	my $idx = $metacache->get( recentKey() ) or return [];
+
+	return [ sort { $idx->{$b} <=> $idx->{$a} } keys %$idx ];
+}
+
+# Both maintainers copy the cached hashref before touching it — the ref returned
+# by the cache is shared with any concurrent reader.
+sub _indexAdd {
+	my ( $key, $url ) = @_;
+
+	my %idx = %{ $metacache->get($key) || {} };
+
+	$idx{$url} = time();
+
+	if ( keys %idx > INDEX_MAX ) {
+		my @byAge = sort { $idx{$a} <=> $idx{$b} } keys %idx;
+		delete @idx{ @byAge[ 0 .. $#byAge - INDEX_MAX ] };
+	}
+
+	$metacache->set( $key, \%idx, META_TTL );
+}
+
+sub _indexRemove {
+	my ( $key, $url ) = @_;
+
+	my $idx = $metacache->get($key) or return;
+	return unless exists $idx->{$url};
+
+	my %copy = %$idx;
+	delete $copy{$url};
+
+	$metacache->set( $key, \%copy, META_TTL );
+}
 
 # On-demand filenames are <yyyymmdd>_<token>_...mp3, where the token identifies the
 # program (e.g. Rakkaudesta, RHAamut, KMK). It is the one program handle recoverable
@@ -64,9 +187,25 @@ sub tokenFromUrl {
 	return $url =~ m{/\d{8}_([^_/]+)_}i ? $1 : undef;
 }
 
-# Read helpers (used by Metadata.pm at play time).
-sub getMeta       { $metacache->get( metaKey( $_[0] ) ) }
-sub getTokenMeta  { my $t = tokenFromUrl( $_[0] ); $t ? $metacache->get( tokenKey($t) ) : undef }
+# Read helpers (used by Metadata.pm at play time). Normalised: callers may hold
+# either the wrapped or the plain form of the URL.
+sub getMeta       { $metacache->get( metaKey( plainUrl( $_[0] ) ) ) }
+sub getTokenMeta  { my $t = tokenFromUrl( plainUrl( $_[0] ) ); $t ? $metacache->get( tokenKey($t) ) : undef }
+
+# Podcasts and clips have begin == end in the API, so their menu items carry no
+# duration — but once a track has actually streamed, the MP3 scan knows it. Write it
+# back so later browses can gate the resume row on it. (Called from onStop.)
+sub setMetaDuration {
+	my ( $url, $duration ) = @_;
+
+	$url = plainUrl($url);
+
+	my $meta = $metacache->get( metaKey($url) ) or return;
+	return if $meta->{duration};
+
+	$meta->{duration} = int $duration;
+	$metacache->set( metaKey($url), $meta, META_TTL );
+}
 
 # ---------------------------------------------------------------------------
 # Public endpoints
@@ -254,7 +393,11 @@ sub _parsePrograms {
 			title    => _clean( $p->{post_title} ),
 			desc     => _clean( $p->{post_content} ),
 			descLong => _cleanLong( $p->{post_content} ),
-			img      => _safeUrl( $p->{img} ),
+			# Six programs (Moderni aika, ...) have no artwork anywhere — not in
+			# the API, not on their own page. The bundled logo beats a grey square,
+			# and setting it here covers every consumer at once: program rows,
+			# episode items, now-playing metadata and the favourites parser.
+			img      => _safeUrl( $p->{img} ) || LOGO,
 			archive  => $p->{archive} ? 1 : 0,
 		};
 
@@ -361,11 +504,11 @@ sub _parseEpisodes {
 		my $img      = ( $prog && $prog->{img} ) || ( $home && $home->{img} );
 
 		# Still nothing (a guest clip reached through a cross-program list, where
-		# there is no host page to inherit from): keep whatever cover an earlier
-		# browse already stored rather than clobbering it with undef.
+		# there is no host page to inherit from): a cover from an earlier browse
+		# may be real program artwork, so it wins over the logo fallback.
 		if ( !$img ) {
 			my $old = $metacache->get( metaKey($url) );
-			$img = $old->{cover} if $old && $old->{cover};
+			$img = ( $old && $old->{cover} ) || LOGO;
 		}
 
 		my $duration = _duration( $e->{begin}, $e->{end} );
@@ -405,13 +548,17 @@ sub _parseEpisodes {
 			}
 		}
 
+		# The playable URL is the wrapped form so the protocol handler sees the
+		# play lifecycle; every cache below stays keyed by the plain $url.
+		my $wrapped = wrapUrl($url);
+
 		my $item = {
 			name      => $name,
 			line1     => $name,
 			line2     => $line2,
 			type      => 'audio',
-			url       => $url,
-			play      => $url,
+			url       => $wrapped,
+			play      => $wrapped,
 			on_select => 'play',
 			image     => $img,
 			$duration ? ( duration => $duration ) : (),
@@ -442,6 +589,10 @@ sub _parseEpisodes {
 				icon     => $img,
 				type     => 'MP3',
 				$duration ? ( duration => $duration ) : (),
+
+				# So the Kesken / Viimeksi kuunnellut rows — rebuilt from
+				# nothing but this entry — can show the episode info too.
+				length $descLong ? ( description => $descLong ) : (),
 			},
 			META_TTL,
 		);
@@ -459,8 +610,12 @@ sub _parseEpisodes {
 		}
 
 		# Slim::Player::Protocols::HTTP reads this key directly for stream artwork, from
-		# the default cache namespace.
-		$cache->set( "remote_image_$url", $img, META_TTL ) if $img;
+		# the default cache namespace — keyed by whatever URL the track object carries,
+		# which after the handler's scanUrl rewrite is the wrapped form. Write both.
+		if ($img) {
+			$cache->set( "remote_image_$url",     $img, META_TTL );
+			$cache->set( "remote_image_$wrapped", $img, META_TTL );
+		}
 
 		push @items, $item;
 	}

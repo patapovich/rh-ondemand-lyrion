@@ -104,3 +104,31 @@ PLUGIN_RADIOHELSINKI_ERROR
 PLUGIN_RADIOHELSINKI_NO_MATCH
 	EN	No programs found
 	FI	Ohjelmia ei löytynyt
+
+PLUGIN_RADIOHELSINKI_PLAY_FROM_POSITION_X
+	EN	Resume from %s
+	FI	Jatka kohdasta %s
+
+PLUGIN_RADIOHELSINKI_PLAY_FROM_BEGINNING
+	EN	Play from the beginning
+	FI	Toista alusta
+
+PLUGIN_RADIOHELSINKI_IN_PROGRESS
+	EN	In progress
+	FI	Kesken
+
+PLUGIN_RADIOHELSINKI_NO_IN_PROGRESS
+	EN	No episodes in progress
+	FI	Ei keskeneräisiä jaksoja
+
+PLUGIN_RADIOHELSINKI_RECENT
+	EN	Recently played
+	FI	Viimeksi kuunnellut
+
+PLUGIN_RADIOHELSINKI_NO_RECENT
+	EN	Nothing played yet
+	FI	Ei kuunneltuja jaksoja
+
+PLUGIN_RADIOHELSINKI_EPISODE_INFO
+	EN	Episode info
+	FI	Jakson tiedot

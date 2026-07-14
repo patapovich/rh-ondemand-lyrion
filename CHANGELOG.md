@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.0 — 2026-07-14
+
+- Resume from last position. Stopping mid-episode saves the spot (persistent,
+  30 days); the episode's menu then opens with a "Jatka kohdasta 12:34" row
+  above "Toista alusta". Episodes in the flat lists (Uusimmat/Suositut) gain
+  the same choice via a small submenu that appears only when a saved position
+  exists. Positions clear automatically when an episode plays to the end.
+- New "Kesken" top-level menu: every half-listened episode, newest-stopped
+  first, with progress on the second line ("20:09 / 2:00:00") and the same
+  resume/from-start submenu. Entries leave the list when an episode plays to
+  the end, is stopped inside its first 15 seconds, or its 30-day position
+  expires. Capped at the 50 most recent; survives server restarts.
+- New "Viimeksi kuunnellut" top-level menu: the last 50 episodes that have
+  started playing, newest first — half-listened ones open the resume submenu,
+  everything else replays with one tap. Both lists show the episode info,
+  just like the programme menus.
+- "Jakson tiedot": the episode description appears in the now-playing song
+  info view for any Radio Helsinki track.
+- Both lists can be added to LMS favourites. The favourite stores a pseudo-URL
+  (radiohelsinki://kesken, ://recent); opening it serves the live list,
+  complete with resume submenus. Playing such a favourite queues the episodes.
+- Station-logo artwork for programmes the station publishes no image for
+  (Moderni aika and five others). Ships a 600×600 logo used as the cover
+  fallback everywhere: programme rows, episode lists, now-playing.
+- Technically: episode URLs are now wrapped as radiohelsinki://… so a new
+  protocol handler (a port of the bundled Podcast plugin's) sees the play
+  lifecycle; the natural-end case additionally uses the decoder-done hook
+  (onPlayout), which the Podcast plugin lacks — its positions go stale when an
+  episode finishes on its own.
+- Favourites saved from 1.0.x (plain https URLs) keep playing with full
+  metadata but do not get resume; re-favourite the episode to upgrade it.
+- Requires LMS 8.2+ (was 8.0).
+
 ## 1.0.1 — 2026-07-14
 
 - Artwork for clips inside a programme's menu. The clip list mixes in episodes

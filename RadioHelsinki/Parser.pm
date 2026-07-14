@@ -11,6 +11,11 @@ package Plugins::RadioHelsinki::Parser;
 #
 # This mirrors how the bundled Podcast plugin favourites a show (favorites_url + a
 # parser class), see Slim::Plugin::Podcast.
+#
+# Resume rows come along for free: episode items arrive from API.pm with wrapped
+# radiohelsinki:// URLs and this parser renders them through Plugin::programItems,
+# the same path browsing uses — and nocache => 1 below means the menu (and thus the
+# current resume offset) is recomputed every time the favourite is opened.
 
 use strict;
 use warnings;

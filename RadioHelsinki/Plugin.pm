@@ -10,6 +10,8 @@ use warnings;
 
 use base 'Slim::Plugin::OPMLBased';
 
+use Slim::Menu::TrackInfo;
+use Slim::Utils::DateTime;
 use Slim::Utils::Log;
 use Slim::Utils::Strings qw(cstring);
 
@@ -17,6 +19,10 @@ use Plugins::RadioHelsinki::API;
 use Plugins::RadioHelsinki::Metadata;
 use Plugins::RadioHelsinki::Search;
 use Plugins::RadioHelsinki::Parser;
+
+# Loading it is what registers radiohelsinki:// — must happen at plugin load, not
+# first browse, so a wrapped favourite resumes correctly right after a restart.
+use Plugins::RadioHelsinki::ProtocolHandler;
 
 # Six programs have no artwork of their own; without this they render as a blank row.
 use constant FALLBACK_ICON => 'plugins/RadioHelsinki/html/images/icon.png';
@@ -32,6 +38,13 @@ sub initPlugin {
 
 	Plugins::RadioHelsinki::Metadata->init();
 
+	# The episode info inside the now-playing "song info" view, for any of our
+	# tracks — wrapped or legacy plain URL alike.
+	Slim::Menu::TrackInfo->registerInfoProvider( radiohelsinki => (
+		after => 'top',
+		func  => \&trackInfoMenu,
+	) );
+
 	$class->SUPER::initPlugin(
 		feed   => \&handleFeed,
 		tag    => 'radiohelsinki',
@@ -42,6 +55,28 @@ sub initPlugin {
 
 sub getDisplayName { 'PLUGIN_RADIOHELSINKI' }
 
+# The episode description as a song-info entry. getMeta normalises wrapped and
+# plain URLs, and quietly returns nothing for foreign tracks. Shaped exactly
+# like the core COMMENT provider (folder + unfold) — a bare text item renders
+# as an empty row in menuMode.
+sub trackInfoMenu {
+	my ( $client, $url, $track, $remoteMeta ) = @_;
+
+	my $meta = Plugins::RadioHelsinki::API::getMeta($url);
+	return unless $meta && length( $meta->{description} || '' );
+
+	return {
+		name  => cstring( $client, 'PLUGIN_RADIOHELSINKI_EPISODE_INFO' ),
+		items => [ {
+			type => 'text',
+			wrap => 1,
+			name => $meta->{description},
+		} ],
+
+		unfold => 1,
+	};
+}
+
 # ---------------------------------------------------------------------------
 # Top level
 # ---------------------------------------------------------------------------
@@ -51,6 +86,33 @@ sub handleFeed {
 
 	$cb->( {
 		items => [
+			# Both lists are favouritable: the favourite stores the pseudo-URL
+			# (a coderef could not be serialised) and ProtocolHandler.pm's
+			# explodePlaylist serves the live list back when it is opened. The
+			# `playlist` key is the same trick the program rows use — a skin
+			# only offers "Add to favourites" on items it considers playable.
+			{
+				name => cstring( $client, 'PLUGIN_RADIOHELSINKI_IN_PROGRESS' ),
+				type => 'link',
+				url  => \&inProgress,
+
+				favorites_url   => 'radiohelsinki://kesken',
+				favorites_type  => 'link',
+				favorites_title => cstring( $client, 'PLUGIN_RADIOHELSINKI_IN_PROGRESS' ),
+				favorites_icon  => FALLBACK_ICON,
+				playlist        => 'radiohelsinki://kesken',
+			},
+			{
+				name => cstring( $client, 'PLUGIN_RADIOHELSINKI_RECENT' ),
+				type => 'link',
+				url  => \&recentlyPlayed,
+
+				favorites_url   => 'radiohelsinki://recent',
+				favorites_type  => 'link',
+				favorites_title => cstring( $client, 'PLUGIN_RADIOHELSINKI_RECENT' ),
+				favorites_icon  => FALLBACK_ICON,
+				playlist        => 'radiohelsinki://recent',
+			},
 			{
 				name => cstring( $client, 'PLUGIN_RADIOHELSINKI_LATEST_ONDEMAND' ),
 				type => 'link',
@@ -85,6 +147,129 @@ sub handleFeed {
 			},
 		],
 	} );
+}
+
+# ---------------------------------------------------------------------------
+# In progress ("Kesken") and recently played ("Viimeksi kuunnellut")
+# ---------------------------------------------------------------------------
+
+# Both lists render URL indexes maintained by the protocol handler. Fully
+# synchronous — the indexes and the metadata all live in the local cache — and a
+# coderef feed is re-invoked on every open, so the lists are always current.
+
+# Everything with a saved resume position, newest-stopped first.
+sub inProgress {
+	my ( $client, $cb, $args ) = @_;
+	$cb->( inProgressFeed($client) );
+}
+
+# Everything that has been played, newest first — half-listened entries open the
+# resume submenu, finished or barely-touched ones replay with one tap.
+sub recentlyPlayed {
+	my ( $client, $cb, $args ) = @_;
+	$cb->( recentFeed($client) );
+}
+
+# The feeds themselves, separated from the browse callbacks because the protocol
+# handler serves the same lists when a favourited "radiohelsinki://kesken" or
+# "://recent" is opened (explodePlaylist).
+sub inProgressFeed {
+	my $client = shift;
+
+	my @items = map { _inProgressItem( $client, $_ ) }
+		@{ Plugins::RadioHelsinki::API::getInProgress() };
+
+	return { items => @items ? \@items : [ {
+		name => cstring( $client, 'PLUGIN_RADIOHELSINKI_NO_IN_PROGRESS' ),
+		type => 'text',
+	} ] };
+}
+
+sub recentFeed {
+	my $client = shift;
+
+	my @items = map {
+		my $item = _urlItem( $client, $_ );
+		$item ? _maybeResume( $client, $item ) : ();
+	} @{ Plugins::RadioHelsinki::API::getRecent() };
+
+	return { items => @items ? \@items : [ {
+		name => cstring( $client, 'PLUGIN_RADIOHELSINKI_NO_RECENT' ),
+		type => 'text',
+	} ] };
+}
+
+# One in-progress row, or () when there is nothing worth showing.
+sub _inProgressItem {
+	my ( $client, $url ) = @_;
+
+	my $item = _urlItem( $client, $url ) or return ();
+
+	my $menu = _maybeResume( $client, $item );
+
+	# Returned unchanged means _resumeItem judged the position practically
+	# finished (a duration learned after the save) — not in progress after all.
+	return $menu == $item ? () : $menu;
+}
+
+# Rebuild a playable episode row from nothing but a plain audio URL, using the
+# cached now-playing metadata. Returns undef when nothing displayable survives —
+# the position/history entry still works via the episode's own menu, it is just
+# left out of these lists.
+sub _urlItem {
+	my ( $client, $url ) = @_;
+
+	my $meta = Plugins::RadioHelsinki::API::getMeta($url) || {};
+
+	# Meta entry gone (cache wiped, entry outlived it): synthesise what the
+	# now-playing provider would — date from the filename, program name and
+	# cover from the token map.
+	my $title = $meta->{title};
+	$title = "$3.$2.$1" if !$title && $url =~ m{/(\d{4})(\d{2})(\d{2})_}i;
+
+	my $tok    = $meta->{artist} ? undef : Plugins::RadioHelsinki::API::getTokenMeta($url);
+	my $artist = $meta->{artist} || ( $tok && $tok->{artist} ) || '';
+	my $cover  = $meta->{cover}  || ( $tok && $tok->{cover} );
+
+	return undef unless defined $title && length $title;
+
+	# Cross-program list, so lead with the program, same style as Uusimmat.
+	# \x{2013}, not a literal dash — no `use utf8` here.
+	my $name = length($artist) && $artist ne $title ? "$artist \x{2013} $title" : $title;
+
+	# Progress when a position exists, otherwise just the length when known —
+	# followed by the first paragraph of the episode info (skins truncate line2
+	# by design, and the full text is one level down as a textarea).
+	# \x{00B7} escape, not a literal middle dot — no `use utf8` here.
+	my $pos  = Plugins::RadioHelsinki::API::getPosition($url);
+	my $time =
+		  $pos ? _shortTime($pos) . ( $meta->{duration} ? ' / ' . _shortTime( $meta->{duration} ) : '' )
+		: $meta->{duration} ? _shortTime( $meta->{duration} )
+		:                     '';
+
+	my $preview = $meta->{description} || '';
+	$preview =~ s/\n.*//s;
+
+	my $line2 = join " \x{00B7} ", grep { length } $time, $preview;
+
+	my $wrapped = Plugins::RadioHelsinki::API::wrapUrl($url);
+
+	return {
+		name      => $name,
+		line1     => $name,
+		line2     => $line2,
+		type      => 'audio',
+		url       => $wrapped,
+		play      => $wrapped,
+		on_select => 'play',
+		image     => $cover || FALLBACK_ICON,
+		$meta->{duration} ? ( duration => $meta->{duration} ) : (),
+
+		# The episode info: _maybeResume lifts it into the submenu as a
+		# textarea; on a one-tap row it feeds the info view, like everywhere
+		# else. Older meta entries lack it until their episode is re-browsed.
+		length( $meta->{description} || '' ) ? ( description => $meta->{description} ) : (),
+	};
 }
 
 # ---------------------------------------------------------------------------
@@ -304,6 +489,10 @@ sub _episodeMenus {
 
 		my $tracks = defined $key ? $playlists->{$key} : [];
 
+		# Half-listened episodes get a resume row above the play row, which is then
+		# relabelled so "from the beginning" is an explicit choice, not a surprise.
+		my @resume = _resumeItem( $client, $episode );
+
 		push @episodes, {
 			name  => $episode->{name},
 			line1 => $episode->{name},
@@ -314,7 +503,10 @@ sub _episodeMenus {
 				length( $episode->{description} || '' )
 					? ( { name => $episode->{description}, type => 'textarea', wrap => 1 } )
 					: (),
-				_playItem( $client, $episode, cstring( $client, 'PLUGIN_RADIOHELSINKI_PLAY_EPISODE' ) ),
+				@resume,
+				_playItem( $client, $episode, cstring( $client,
+					@resume ? 'PLUGIN_RADIOHELSINKI_PLAY_FROM_BEGINNING'
+							: 'PLUGIN_RADIOHELSINKI_PLAY_EPISODE' ) ),
 				map { Plugins::RadioHelsinki::Search::trackItem( $client, $_, $prog ) } @$tracks,
 			],
 		};
@@ -356,6 +548,79 @@ sub _playItem {
 	return \%item;
 }
 
+# The "resume from 12:34" row — one element when a saved position exists, empty
+# list otherwise, so callers can splice it in unconditionally. The row's URL
+# carries the position as a {from=N} suffix; ProtocolHandler.pm turns it into a
+# byte-offset seek before the stream starts.
+#
+# Copies $episode, never mutates it: the episode hashes live inside API.pm's
+# cached lists and are shared across requests.
+sub _resumeItem {
+	my ( $client, $episode ) = @_;
+
+	my $pos = Plugins::RadioHelsinki::API::getPosition( $episode->{url} ) or return ();
+
+	# Practically finished counts as finished. Lenient when the duration is
+	# unknown (podcasts and clips) — a stale row beats a lost position.
+	return () if $episode->{duration} && $pos >= $episode->{duration} - 15;
+
+	my $t = _shortTime($pos);
+
+	my %item = %$episode;
+
+	delete @item{qw(items _begin _end description)};
+
+	$item{name} = $item{line1} =
+		"\x{25B6} " . cstring( $client, 'PLUGIN_RADIOHELSINKI_PLAY_FROM_POSITION_X', $t );
+	$item{line2}       = $episode->{name};
+	$item{playcontrol} = 'play';
+	$item{url} = $item{play} = Plugins::RadioHelsinki::API::wrapUrl(
+		Plugins::RadioHelsinki::API::plainUrl( $episode->{url} ), $pos );
+
+	return \%item;
+}
+
+# Flat-list counterpart: those lists are one-tap audio leaves, so an episode with
+# a saved position is converted (on a copy) into a small submenu — resume row,
+# from-the-beginning row — exactly like the bundled Podcast plugin's recent list.
+# Episodes without a position pass through untouched.
+sub _maybeResume {
+	my ( $client, $item ) = @_;
+
+	my @resume = _resumeItem( $client, $item ) or return $item;
+
+	my %wrapper = %$item;
+
+	# Keep `play` + on_select so the wrapper still acts playable (play button,
+	# presetParams/favouriting); drop `url` and `description` so it browses into
+	# the submenu instead of being treated as a leaf.
+	delete @wrapper{qw(url description)};
+	$wrapper{type}  = 'link';
+	$wrapper{items} = [
+		length( $item->{description} || '' )
+			? ( { name => $item->{description}, type => 'textarea', wrap => 1 } )
+			: (),
+		@resume,
+		_playItem( $client, $item, cstring( $client, 'PLUGIN_RADIOHELSINKI_PLAY_FROM_BEGINNING' ) ),
+	];
+
+	# {from=0}: differs from the wrapper's own play URL so XMLBrowser treats it
+	# as a distinct playable row; a startTime of 0 is falsy, so it simply plays
+	# from the start. (The Podcast plugin's little trick.)
+	$wrapper{items}[-1]{url} = $wrapper{items}[-1]{play} =
+		Plugins::RadioHelsinki::API::wrapUrl(
+			Plugins::RadioHelsinki::API::plainUrl( $item->{url} ), 0 );
+
+	return \%wrapper;
+}
+
+# "1:23:45", not "01:23:45" — the leading zero is just noise in a menu row.
+sub _shortTime {
+	my $t = Slim::Utils::DateTime::timeFormat(shift);
+	$t =~ s/^0+[:\.]//;
+	return $t;
+}
+
 # ---------------------------------------------------------------------------
 # Callback plumbing
 # ---------------------------------------------------------------------------
@@ -365,7 +630,11 @@ sub _episodesCb {
 
 	return sub {
 		my $items = shift;
-		$cb->( { items => @$items ? $items : [ _empty($client) ] } );
+
+		# Never map over $items in place — it is a cached, shared list.
+		my @out = map { _maybeResume( $client, $_ ) } @$items;
+
+		$cb->( { items => @out ? \@out : [ _empty($client) ] } );
 	};
 }
 

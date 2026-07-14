@@ -1,13 +1,19 @@
 package Plugins::RadioHelsinki::Metadata;
 
 # The audio is a plain MP3 on Cloudflare with Content-Length and Accept-Ranges,
-# so Slim::Player::Protocols::HTTP streams and seeks it natively and there is no
-# protocol handler here. But that also means LMS knows nothing about the track
-# beyond its filename.
+# so the stock HTTP(S) machinery streams and seeks it natively. Episode URLs are
+# nevertheless wrapped as radiohelsinki://<https-url> by API.pm — not for
+# streaming, but so ProtocolHandler.pm gets the lifecycle hooks that power
+# resume-from-position. LMS still knows nothing about the track beyond its
+# filename, which is where this provider comes in.
 #
 # Slim::Player::Protocols::HTTP::getMetadataFor() asks
 # Slim::Formats::RemoteMetadata for a provider matching the URL, so we register
-# one and serve back what API.pm cached under the same URL when it built the menu.
+# one and serve back what API.pm cached when it built the menu. The provider can
+# be handed either form of the URL — the wrapped one once the handler's scanUrl
+# has renamed the track, the plain one before that and for old favourites — so
+# MATCH accepts both and the lookup key is normalised to the plain form the
+# caches are keyed by.
 #
 # This is also what makes favourites work: the metadata outlives the menu that
 # produced it.
@@ -32,7 +38,7 @@ use Plugins::RadioHelsinki::API;
 # nebulacloud hosts are shared object storage — matching them by host alone would
 # claim other tenants' streams.
 use constant MATCH =>
-	qr{^https?://(?:[^/]*radiohelsinki[^/]*/|[^/]+/(?:swift/v1/)?(?:rh2017ondemand|cdn\.radiohelsinki\.fi)/)}i;
+	qr{^(?:radiohelsinki://)?https?://(?:[^/]*radiohelsinki[^/]*/|[^/]+/(?:swift/v1/)?(?:rh2017ondemand|cdn\.radiohelsinki\.fi)/)}i;
 
 my $log = logger('plugin.radiohelsinki');
 
@@ -45,6 +51,9 @@ sub init {
 
 sub provider {
 	my ( $client, $url ) = @_;
+
+	# All caches are keyed by the plain https URL; we may be handed the wrapped one.
+	$url = Plugins::RadioHelsinki::API::plainUrl($url);
 
 	# 1. Exact per-episode metadata, if this track's menu was ever browsed.
 	my $meta = Plugins::RadioHelsinki::API::getMeta($url);
