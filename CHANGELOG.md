@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-07-14
+
+- Tapping a half-listened episode in Kesken, Viimeksi kuunnellut or the flat
+  lists on a touch skin now opens the resume submenu as intended; it used to
+  start playback from the beginning, making resume unreachable there. The
+  play button and favouriting still work on the row itself.
+
 ## 1.1.0 — 2026-07-14
 
 - Resume from last position. Stopping mid-episode saves the spot (persistent,

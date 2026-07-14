@@ -591,10 +591,12 @@ sub _maybeResume {
 
 	my %wrapper = %$item;
 
-	# Keep `play` + on_select so the wrapper still acts playable (play button,
-	# presetParams/favouriting); drop `url` and `description` so it browses into
-	# the submenu instead of being treated as a leaf.
-	delete @wrapper{qw(url description)};
+	# Keep `play` so the wrapper still acts playable (play button,
+	# presetParams/favouriting) — but drop `on_select`: with it a touch skin
+	# plays the row from the start on tap instead of opening the submenu,
+	# which is exactly the resume choice this wrapper exists to offer. Drop
+	# `url` and `description` too so it browses instead of acting as a leaf.
+	delete @wrapper{qw(url description on_select)};
 	$wrapper{type}  = 'link';
 	$wrapper{items} = [
 		length( $item->{description} || '' )
