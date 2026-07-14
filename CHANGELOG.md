@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1 — 2026-07-14
+
+- Artwork for clips inside a programme's menu. The clip list mixes in episodes
+  belonging to other programmes (e.g. Viikon levy inside the aamut page) and
+  one-off guest pages the programme directory has never heard of. Foreign clips
+  now resolve their artwork through the full programme directory, and clips from
+  unknown guest pages inherit the hosting programme's artwork instead of none.
+- Now-playing metadata for such clips is no longer cached without a cover, and a
+  cover already cached is never overwritten with an empty one.
+
 ## 1.0.0 — 2026-07-14
 
 Initial release.

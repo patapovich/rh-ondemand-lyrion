@@ -26,7 +26,7 @@ use constant META_TTL  => 30 * 86400;
 
 # Bump to invalidate every cached menu, e.g. after changing what an item holds.
 # Without this a bad payload would sit in the cache for a day after the fix shipped.
-use constant CACHE_VER => 9;
+use constant CACHE_VER => 10;
 
 # The site 504s under load, so nothing is fetched more often than it has to be.
 use constant TTL_PROGRAMS => 24 * 3600;
@@ -85,16 +85,28 @@ sub getPrograms {
 
 # One program's whole archive: { ondemand => [], podcasts => [], clips => [] },
 # each already mapped to playable OPML items.
+#
+# The clip list ("interviews") is not limited to this program: the API mixes in
+# clips belonging to other programs (Viikon levy inside the aamut page, one-off
+# guest pages). Resolving those needs the full program directory, so fetch it
+# first — it is cached and cheap. If the directory is unavailable, fall back to
+# building the menu from this program alone rather than failing the whole page.
 sub getProgramContent {
 	my ( $prog, $cb, $ecb ) = @_;
 
-	_fetch(
-		'content_' . $prog->{id},
-		programContentUrl( $prog->{id} ),
-		TTL_CONTENT,
-		sub { _parseProgramContent( shift, $prog ) },
-		$cb, $ecb,
-	);
+	my $go = sub {
+		my $byId = shift;
+
+		_fetch(
+			'content_' . $prog->{id},
+			programContentUrl( $prog->{id} ),
+			TTL_CONTENT,
+			sub { _parseProgramContent( shift, $prog, $byId ) },
+			$cb, $ecb,
+		);
+	};
+
+	getPrograms( sub { $go->( shift->{byId} ) }, sub { $go->(undef) } );
 }
 
 # The program_content endpoint for a program. Doubles as the favorites_url for a
@@ -263,16 +275,20 @@ sub _parsePrograms {
 }
 
 sub _parseProgramContent {
-	my ( $json, $prog ) = @_;
+	my ( $json, $prog, $byId ) = @_;
 
 	return unless ref $json eq 'HASH';
 
-	my $byId = { $prog->{id} => $prog };
+	# Full directory when available, so foreign clips resolve their own program;
+	# this page's program always wins for its own id. $prog doubles as the artwork
+	# fallback: a clip whose program the directory has never heard of (per-guest
+	# pages) still aired in *this* show, so this show's cover beats none at all.
+	my $map = { %{ $byId || {} }, $prog->{id} => $prog };
 
 	return {
-		ondemand  => _parseEpisodes( $json->{ondemand},        $byId ),
-		podcasts  => _parseEpisodes( $json->{latest_podcasts}, $byId ),
-		clips     => _parseEpisodes( $json->{interviews},      $byId ),
+		ondemand  => _parseEpisodes( $json->{ondemand},        $map, undef, $prog ),
+		podcasts  => _parseEpisodes( $json->{latest_podcasts}, $map, undef, $prog ),
+		clips     => _parseEpisodes( $json->{interviews},      $map, undef, $prog ),
 		playlists => _parsePlaylists( $json->{playlists} ),
 	};
 }
@@ -329,7 +345,7 @@ sub _parsePlaylists {
 # comes from a different program. Inside a single program's own menu the program
 # name would be 346 rows of noise, so it stays out of the labels there.
 sub _parseEpisodes {
-	my ( $episodes, $byId, $cross ) = @_;
+	my ( $episodes, $byId, $cross, $home ) = @_;
 
 	return [] unless ref $episodes eq 'ARRAY';
 
@@ -342,7 +358,16 @@ sub _parseEpisodes {
 		my $url = _safeUrl( $e->{audio_mp3_url} ) or next;
 
 		my $prog     = $byId->{ $e->{prog} || '' };
-		my $img      = $prog ? $prog->{img} : undef;
+		my $img      = ( $prog && $prog->{img} ) || ( $home && $home->{img} );
+
+		# Still nothing (a guest clip reached through a cross-program list, where
+		# there is no host page to inherit from): keep whatever cover an earlier
+		# browse already stored rather than clobbering it with undef.
+		if ( !$img ) {
+			my $old = $metacache->get( metaKey($url) );
+			$img = $old->{cover} if $old && $old->{cover};
+		}
+
 		my $duration = _duration( $e->{begin}, $e->{end} );
 		my $date     = _date( $e->{begin} );
 
