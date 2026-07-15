@@ -14,8 +14,13 @@ plugin — it improves the **live stream's** metadata, which RadioNowPlaying own
 The proxy impersonates the feed: fetches the real `djonline.js` with a browser
 User-Agent, fills the empty `album` field on the newest rows via the free
 iTunes Search API (`country=FI`, cached in memory, failed lookups retried
-after 6 h), and returns the document otherwise unchanged. Every failure mode
-degrades to passing the original content (or error status) through.
+after 6 h), injects a `program_image` field into the current/next programme
+slots from the station's programs API (24 h cache; the stationdata fieldmap
+maps it to `progicon`, so now-playing shows the programme cover instead of
+the station logo), and returns the document otherwise unchanged. Every
+failure mode degrades to passing the original content (or error status)
+through — including the feed's own quirks, like a literal `false` appearing
+as a placeholder row in `last_playing`.
 
 ## Install (on the LMS host)
 

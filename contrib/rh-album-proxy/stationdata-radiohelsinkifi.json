@@ -42,7 +42,8 @@
 			"progsubtitle": "program_hosts[0]/name",
 			"description": "description",
 			"progStartTime": "begin",
-			"progEndTime": "end"
+			"progEndTime": "end",
+			"progicon": "program_image"
 		},
 		"reversesongs": "true",
 		"addcomposer": true,
