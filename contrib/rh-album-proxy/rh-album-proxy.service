@@ -1,0 +1,15 @@
+[Unit]
+Description=Radio Helsinki djonline album-enrichment proxy for RadioNowPlaying
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/lib/rh-album-proxy.py
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
