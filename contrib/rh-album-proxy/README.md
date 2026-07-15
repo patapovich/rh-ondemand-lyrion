@@ -30,9 +30,23 @@ curl 'http://127.0.0.1:9099/djonline.js?dt=0000000000000_0'   # should return fe
 ```
 
 Then point RadioNowPlaying at it: copy `stationdata-radiohelsinkifi.json` into
-RadioNowPlaying's `stationdata/` directory (the non-`init-` filename marks it
-as a user override that survives plugin updates) — its `songurl` is
+RadioNowPlaying's `stationdata/` directory — its `songurl` is
 `http://127.0.0.1:9099/djonline.js?dt=${unixtime}000_0` — and restart LMS.
+
+**A RadioNowPlaying update replaces its whole plugin directory, wiping the
+customised station file** (the non-`init-` name only controls processing
+order; RNP's other config dirs are TTL-managed caches, so there is no safe
+in-plugin location). The `rh-rnp-stationdata.path`/`.service` units +
+`rh-rnp-apply.sh` handle this: a master copy lives at
+`/usr/local/lib/rh-rnp-stationdata.json` and a systemd path watcher restores
+it (and restarts LMS once) whenever the deployed file changes. Install:
+
+```sh
+cp rh-rnp-apply.sh /usr/local/sbin/ && chmod +x /usr/local/sbin/rh-rnp-apply.sh
+cp stationdata-radiohelsinkifi.json /usr/local/lib/rh-rnp-stationdata.json
+cp rh-rnp-stationdata.service rh-rnp-stationdata.path /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now rh-rnp-stationdata.path rh-rnp-stationdata.service
+```
 
 ## Rollback
 
