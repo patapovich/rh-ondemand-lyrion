@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — 2026-07-15
+
+- "Nyt soi" in the live stream's song info: shows the programme on air right
+  now (name, hosts, airtime, episode text) with a "Siirry ohjelmaan" link
+  into its archive menu — the live stream, the programme and its episodes
+  are now linked from now-playing, matching what episodes already had. The
+  entry's label carries the programme name once fetched.
+- "Tulossa" rows underneath: the channel's next three programmes with their
+  times (weekday-prefixed past midnight). Each opens to the slot's own notes
+  (when the station wrote any), the hosts, and the programme's menu.
+
 ## 1.2.0 — 2026-07-15
 
 - "Siirry ohjelmaan" in the now-playing song info: opens the playing episode's

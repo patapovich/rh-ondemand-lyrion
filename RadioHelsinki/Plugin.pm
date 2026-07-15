@@ -63,6 +63,20 @@ sub getDisplayName { 'PLUGIN_RADIOHELSINKI' }
 sub trackInfoMenu {
 	my ( $client, $url, $track, $remoteMeta ) = @_;
 
+	# The live stream: an "on air" entry with the current programme. The row's
+	# label comes from whatever a recent fetch cached (opening the entry always
+	# fetches fresh); on a cold cache it is just "Lähetyksessä".
+	if ( $url =~ m{^https?://stream\.radiohelsinki\.fi\b}i ) {
+		my $cached = Plugins::RadioHelsinki::API::currentProgramCached();
+
+		return {
+			name => cstring( $client, 'PLUGIN_RADIOHELSINKI_ON_AIR' )
+				. ( $cached && $cached->{title} ? ": $cached->{title}" : '' ),
+			type => 'link',
+			url  => \&_liveProgramInfo,
+		};
+	}
+
 	my $meta = Plugins::RadioHelsinki::API::getMeta($url) or return;
 
 	my @items;
@@ -93,6 +107,72 @@ sub trackInfoMenu {
 	}
 
 	return @items ? \@items : undef;
+}
+
+# The live stream's current programme, fetched fresh when the song-info entry
+# is opened: programme + hosts + airtime, the episode text, and the link into
+# the programme's menu (absent when the directory has never seen the id).
+sub _liveProgramInfo {
+	my ( $client, $cb, $args ) = @_;
+
+	Plugins::RadioHelsinki::API::getCurrentProgram(
+		sub {
+			my $cur = shift;
+
+			my @items = ( {
+				name => $cur->{title}
+					. ( length( $cur->{hosts} || '' ) ? " \x{2013} $cur->{hosts}" : '' )
+					. ( $cur->{span} ? " ($cur->{span})" : '' ),
+				type => 'text',
+				wrap => 1,
+			} );
+
+			push @items, { name => $cur->{desc}, type => 'textarea', wrap => 1 }
+				if length( $cur->{desc} || '' );
+
+			if ( my $prog = $cur->{progid} && Plugins::RadioHelsinki::API::programById( $cur->{progid} ) ) {
+				push @items, {
+					name        => cstring( $client, 'PLUGIN_RADIOHELSINKI_GOTO_PROGRAM' ) . ": $prog->{title}",
+					type        => 'link',
+					url         => \&programContent,
+					passthrough => [$prog],
+				};
+			}
+
+			# What the channel plays next — each row opens a small submenu with
+			# the slot's own notes (when the station wrote any), the hosts, and
+			# the link into the programme's menu. \x{00B7} escape, not a
+			# literal middle dot.
+			for my $n ( @{ $cur->{next} || [] } ) {
+				my $name = cstring( $client, 'PLUGIN_RADIOHELSINKI_UPCOMING' )
+					. ( $n->{span} ? " $n->{span}" : '' ) . " \x{00B7} $n->{title}";
+
+				my @sub;
+
+				push @sub, { name => $n->{desc}, type => 'textarea', wrap => 1 }
+					if length( $n->{desc} || '' );
+
+				push @sub, { name => $n->{hosts}, type => 'text' }
+					if length( $n->{hosts} || '' );
+
+				if ( my $prog = $n->{progid} && Plugins::RadioHelsinki::API::programById( $n->{progid} ) ) {
+					push @sub, {
+						name        => cstring( $client, 'PLUGIN_RADIOHELSINKI_GOTO_PROGRAM' ) . ": $prog->{title}",
+						type        => 'link',
+						url         => \&programContent,
+						passthrough => [$prog],
+					};
+				}
+
+				push @items, @sub
+					? { name => $name, type => 'link', items => \@sub }
+					: { name => $name, type => 'text' };
+			}
+
+			$cb->( { items => \@items } );
+		},
+		_errorCb( $client, $cb ),
+	);
 }
 
 # ---------------------------------------------------------------------------

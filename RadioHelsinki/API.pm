@@ -40,6 +40,11 @@ use constant TTL_CONTENT  => 3600;
 use constant TTL_ONDEMAND => 600;
 use constant TTL_PODCASTS => 1800;
 use constant TTL_POPULAR  => 3600;
+use constant TTL_LIVE     => 60;
+
+# The station's live now-playing feed (the same one RadioNowPlaying polls).
+# Only programs/current is read here, for the live stream's song-info entry.
+use constant DJONLINE => 'https://www.radiohelsinki.fi/wp-content/djonline.js';
 
 my $log   = logger('plugin.radiohelsinki');
 my $cache = Slim::Utils::Cache->new();
@@ -272,6 +277,92 @@ sub programById {
 	my $programs = $cache->get( _ck('programs') ) or return undef;
 
 	return $programs->{byId}->{$id};
+}
+
+# What is on air right now, for the live stream's song-info entry:
+# { progid, title, hosts, desc, span }. Cached briefly; _fetch's stale fallback
+# keeps a copy around for the synchronous label helper below.
+sub getCurrentProgram {
+	my ( $cb, $ecb ) = @_;
+
+	_fetch( 'live_current', DJONLINE . '?dt=' . time() . '000_0', TTL_LIVE,
+		\&_parseCurrentProgram, $cb, $ecb );
+}
+
+# Synchronous best-effort read for menu labels — whatever a recent fetch left
+# behind, or undef on a cold cache. Never triggers a fetch.
+sub currentProgramCached {
+	return $cache->get( _ck('live_current') ) || $cache->get( _ck('stale_live_current') );
+}
+
+sub _parseCurrentProgram {
+	my $json = shift;
+
+	my $c = ref $json eq 'HASH' && ref $json->{programs} eq 'HASH' ? $json->{programs}->{current} : undef;
+	return unless ref $c eq 'HASH' && length( $c->{program_title} || '' );
+
+	my $hosts = _hostNames($c);
+
+	# The next few programmes on the channel (the feed carries three). Times as
+	# "16:00-18:00", prefixed with the weekday when the slot is not today.
+	my @next;
+	for my $n ( @{ ref $json->{programs}->{next} eq 'ARRAY' ? $json->{programs}->{next} : [] } ) {
+		next unless ref $n eq 'HASH' && length( $n->{program_title} || '' );
+
+		push @next, {
+			progid => $n->{prog},
+			title  => _clean( $n->{program_title} ),
+			span   => _timeSpan( $n->{begin}, $n->{end} ),
+			hosts  => _hostNames($n),
+			desc   => _cleanLong( $n->{description} ) || _cleanLong( $n->{description_short} ),
+		};
+
+		last if @next >= 3;
+	}
+
+	my $span = _timeSpan( $c->{begin}, $c->{end} );
+
+	return {
+		progid => $c->{prog},
+		title  => _clean( $c->{program_title} ),
+		hosts  => $hosts,
+		desc   => _cleanLong( $c->{description} ) || _cleanLong( $c->{description_short} ),
+		$span ? ( span => $span ) : (),
+		@next ? ( next => \@next ) : (),
+	};
+}
+
+sub _hostNames {
+	my $entry = shift;
+
+	return join ', ',
+		map { $_->{name} } grep { ref $_ eq 'HASH' && length( $_->{name} || '' ) }
+		@{ ref $entry->{program_hosts} eq 'ARRAY' ? $entry->{program_hosts} : [] };
+}
+
+# "16:00-18:00" from two datetimes, weekday-prefixed when the start is not
+# today ("to 00:00-06:00"). \x{2013} escape — no `use utf8` here.
+sub _timeSpan {
+	my ( $begin, $end ) = @_;
+
+	my ($b) = ( $begin || '' ) =~ /(\d{2}:\d{2}):\d{2}$/;
+	my ($e) = ( $end   || '' ) =~ /(\d{2}:\d{2}):\d{2}$/;
+
+	return '' unless $b && $e;
+
+	my $span = "$b\x{2013}$e";
+
+	if ( my $epoch = _epoch($begin) ) {
+		my @now  = localtime();
+		my @then = localtime($epoch);
+
+		if ( $now[3] != $then[3] || $now[4] != $then[4] ) {
+			my $wday = $then[6] || 7;
+			$span = cstring( undef, "PLUGIN_RADIOHELSINKI_DOW_$wday" ) . " $span";
+		}
+	}
+
+	return $span;
 }
 
 # The three flat "newest / most popular" lists. These reference many different
