@@ -9,9 +9,7 @@ plugin — it improves the **live stream's** metadata, which RadioNowPlaying own
 - The station's feed (`https://www.radiohelsinki.fi/wp-content/djonline.js`)
   has an `album` field but never fills it (`label` and `year` are empty too).
 - Cloudflare in front of the station intermittently bot-blocks LMS's default
-  User-Agent.
-- RadioNowPlaying's own cover-search service (radionowplaying.com/coversearch)
-  is gone (404), so nothing else fills the gap.
+  User-Agent occasionally.
 
 The proxy impersonates the feed: fetches the real `djonline.js` with a browser
 User-Agent, fills the empty `album` field on the newest rows via the free
