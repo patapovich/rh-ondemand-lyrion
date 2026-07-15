@@ -37,6 +37,7 @@ NEG_TTL = 6 * 3600       # retry failed lookups eventually
 
 _prog_images = {}        # programme id (str) -> image URL
 _prog_fetched = 0.0
+_best_image = {}         # sized URL -> highest-resolution URL that exists
 
 # "Song (feat. X)" / "[Radio Version]" etc. hurt search precision.
 _noise = re.compile(r"\s*[\(\[][^)\]]*(feat\.|version|edit|remaster|mix)[^)\]]*[\)\]]\s*", re.I)
@@ -72,6 +73,30 @@ def _safe_url(url):
     return urllib.parse.quote(url.encode(), safe=":/?&=%~._-")
 
 
+def best_image(url):
+    """WordPress size-suffixed image ("...-640x640.jpg") -> the full-resolution
+    original when it exists (one HEAD check, cached), else the sized URL."""
+    if url in _best_image:
+        return _best_image[url]
+
+    best = url
+    m = re.match(r"(.+)-\d+x\d+(\.\w+)$", url)
+    if m:
+        candidate = m.group(1) + m.group(2)
+        try:
+            req = urllib.request.Request(candidate, method="HEAD", headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=4) as r:
+                if r.status == 200:
+                    best = candidate
+        except Exception:
+            pass
+
+    if len(_best_image) >= CACHE_MAX:
+        _best_image.pop(next(iter(_best_image)))
+    _best_image[url] = best
+    return best
+
+
 def prog_image(prog_id):
     """Programme id -> image URL, from the station's programs API (24 h cache).
     Failures keep whatever map we had; an empty map just means no injection."""
@@ -91,7 +116,8 @@ def prog_image(prog_id):
                     _prog_images[str(p.get("ID"))] = _safe_url(img)
         except Exception:
             pass
-    return _prog_images.get(str(prog_id))
+    img = _prog_images.get(str(prog_id))
+    return best_image(img) if img else None
 
 
 class Handler(BaseHTTPRequestHandler):
