@@ -55,26 +55,44 @@ sub initPlugin {
 
 sub getDisplayName { 'PLUGIN_RADIOHELSINKI' }
 
-# The episode description as a song-info entry. getMeta normalises wrapped and
-# plain URLs, and quietly returns nothing for foreign tracks. Shaped exactly
-# like the core COMMENT provider (folder + unfold) — a bare text item renders
-# as an empty row in menuMode.
+# Song-info entries for our tracks: a link back to the episode's programme
+# menu, and the episode description. getMeta normalises wrapped and plain URLs,
+# and quietly returns nothing for foreign tracks. The description is shaped
+# exactly like the core COMMENT provider (folder + unfold) — a bare text item
+# renders as an empty row in menuMode.
 sub trackInfoMenu {
 	my ( $client, $url, $track, $remoteMeta ) = @_;
 
-	my $meta = Plugins::RadioHelsinki::API::getMeta($url);
-	return unless $meta && length( $meta->{description} || '' );
+	my $meta = Plugins::RadioHelsinki::API::getMeta($url) or return;
 
-	return {
-		name  => cstring( $client, 'PLUGIN_RADIOHELSINKI_EPISODE_INFO' ),
-		items => [ {
-			type => 'text',
-			wrap => 1,
-			name => $meta->{description},
-		} ],
+	my @items;
 
-		unfold => 1,
-	};
+	# Back to the programme: the meta entry carries the programme id, and
+	# programById answers from the persistent per-programme cache. Unknown ids
+	# (one-off guest pages) simply don't get the row.
+	if ( my $prog = $meta->{progid} && Plugins::RadioHelsinki::API::programById( $meta->{progid} ) ) {
+		push @items, {
+			name        => cstring( $client, 'PLUGIN_RADIOHELSINKI_GOTO_PROGRAM' ) . ": $prog->{title}",
+			type        => 'link',
+			url         => \&programContent,
+			passthrough => [$prog],
+		};
+	}
+
+	if ( length( $meta->{description} || '' ) ) {
+		push @items, {
+			name  => cstring( $client, 'PLUGIN_RADIOHELSINKI_EPISODE_INFO' ),
+			items => [ {
+				type => 'text',
+				wrap => 1,
+				name => $meta->{description},
+			} ],
+
+			unfold => 1,
+		};
+	}
+
+	return @items ? \@items : undef;
 }
 
 # ---------------------------------------------------------------------------

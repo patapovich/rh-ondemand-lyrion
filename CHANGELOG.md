@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 — 2026-07-15
+
+- "Siirry ohjelmaan" in the now-playing song info: opens the playing episode's
+  programme menu (description, play newest, episodes, clips), linking playback
+  back to browsing. Episode metadata now carries the programme id; episodes
+  played before this version gain the link once they are next browsed.
+
 ## 1.1.3 — 2026-07-15
 
 - Live-stream now-playing fixed: the metadata matcher no longer claims

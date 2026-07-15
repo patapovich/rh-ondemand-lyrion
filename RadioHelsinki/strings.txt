@@ -140,3 +140,7 @@ PLUGIN_RADIOHELSINKI_TRACKLIST
 PLUGIN_RADIOHELSINKI_TRACKLIST_DESC
 	EN	Find a track in your library or on Spotify
 	FI	Etsi kappale kirjastosta tai Spotifysta
+
+PLUGIN_RADIOHELSINKI_GOTO_PROGRAM
+	EN	Go to programme
+	FI	Siirry ohjelmaan

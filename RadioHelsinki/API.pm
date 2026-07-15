@@ -26,7 +26,7 @@ use constant META_TTL  => 30 * 86400;
 
 # Bump to invalidate every cached menu, e.g. after changing what an item holds.
 # Without this a bad payload would sit in the cache for a day after the fix shipped.
-use constant CACHE_VER => 13;
+use constant CACHE_VER => 14;
 
 # Station logo bundled with the plugin (600x600, TuneIn's copy of the round RH
 # mark), for the handful of programs the station publishes no artwork for. A
@@ -593,6 +593,13 @@ sub _parseEpisodes {
 				# So the Kesken / Viimeksi kuunnellut rows — rebuilt from
 				# nothing but this entry — can show the episode info too.
 				length $descLong ? ( description => $descLong ) : (),
+
+				# And so now-playing can link back to the programme's menu.
+				# The raw feed id is kept even when the directory lookup missed:
+				# programById() decides at render time whether it resolves.
+				( $prog ? $prog->{id} : $e->{prog} )
+					? ( progid => ( $prog ? $prog->{id} : $e->{prog} ) )
+					: (),
 			},
 			META_TTL,
 		);
