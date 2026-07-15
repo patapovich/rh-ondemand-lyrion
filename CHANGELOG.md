@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3 — 2026-07-15
+
+- Live-stream now-playing fixed: the metadata matcher no longer claims
+  stream.radiohelsinki.fi. LMS hands a URL to the first matching provider
+  (plugins register alphabetically), so our empty answer for the live stream
+  was silently shadowing RadioNowPlaying's rich song/programme/artwork data,
+  leaving only bare ICY titles.
+
 ## 1.1.2 — 2026-07-14
 
 - The resume/play rows inside an episode's submenu no longer repeat the

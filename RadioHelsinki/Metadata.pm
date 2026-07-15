@@ -37,8 +37,14 @@ use Plugins::RadioHelsinki::API;
 # (optionally behind swift/v1/) is one of the station's bucket names. The wasabi and
 # nebulacloud hosts are shared object storage — matching them by host alone would
 # claim other tenants' streams.
+# The live stream host is EXCLUDED on purpose, twice over: Tie::RegexpHash gives
+# the URL to the FIRST registered matching provider, plugins register in
+# alphabetical order, and RadioHelsinki sorts before RadioNowPlaying — so when
+# this regex claimed stream.radiohelsinki.fi, our empty answer for it silently
+# shadowed RadioNowPlaying's rich live now-playing (song, programme, artwork),
+# leaving the live stream with bare ICY titles.
 use constant MATCH =>
-	qr{^(?:radiohelsinki://)?https?://(?:[^/]*radiohelsinki[^/]*/|[^/]+/(?:swift/v1/)?(?:rh2017ondemand|cdn\.radiohelsinki\.fi)/)}i;
+	qr{^(?:radiohelsinki://)?https?://(?:(?!stream\.)[^/]*radiohelsinki[^/]*/|[^/]+/(?:swift/v1/)?(?:rh2017ondemand|cdn\.radiohelsinki\.fi)/)}i;
 
 my $log = logger('plugin.radiohelsinki');
 
@@ -72,9 +78,10 @@ sub provider {
 
 	my $tok = Plugins::RadioHelsinki::API::getTokenMeta($url);
 
-	# Nothing recognisable: this is not one of the station's on-demand files — most
-	# likely the live stream, whose host also matches. Returning anything non-empty
-	# here would suppress LMS's own ICY-title handling for it, so claim nothing.
+	# Nothing recognisable: not one of the station's on-demand files. (The live
+	# stream no longer even matches MATCH — see above — this is a last line of
+	# defence for anything else on a shared host.) Returning anything non-empty
+	# here would suppress other providers' and ICY handling for it.
 	return {} unless $title || $tok;
 
 	my %m = ( album => 'Radio Helsinki', type => 'MP3' );
