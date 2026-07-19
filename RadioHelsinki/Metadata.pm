@@ -37,12 +37,11 @@ use Plugins::RadioHelsinki::API;
 # (optionally behind swift/v1/) is one of the station's bucket names. The wasabi and
 # nebulacloud hosts are shared object storage — matching them by host alone would
 # claim other tenants' streams.
-# The live stream host is EXCLUDED on purpose, twice over: Tie::RegexpHash gives
-# the URL to the FIRST registered matching provider, plugins register in
-# alphabetical order, and RadioHelsinki sorts before RadioNowPlaying — so when
-# this regex claimed stream.radiohelsinki.fi, our empty answer for it silently
-# shadowed RadioNowPlaying's rich live now-playing (song, programme, artwork),
-# leaving the live stream with bare ICY titles.
+# The live stream host is EXCLUDED here: Live.pm owns stream.radiohelsinki.fi
+# with its own provider (and parser). This regex must never claim it — an
+# accidental match would shadow Live.pm's registration or, historically,
+# RadioNowPlaying's (Tie::RegexpHash gives a URL to the FIRST registered
+# matching provider; within a plugin, whichever init runs first).
 use constant MATCH =>
 	qr{^(?:radiohelsinki://)?https?://(?:(?!stream\.)[^/]*radiohelsinki[^/]*/|[^/]+/(?:swift/v1/)?(?:rh2017ondemand|cdn\.radiohelsinki\.fi)/)}i;
 

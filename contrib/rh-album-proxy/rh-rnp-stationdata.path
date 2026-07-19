@@ -1,9 +1,0 @@
-[Unit]
-Description=Watch RadioNowPlaying station file for Radio Helsinki customisation loss
-
-[Path]
-PathChanged=/var/lib/squeezeboxserver/cache/InstalledPlugins/Plugins/RadioNowPlaying/stationdata/stationdata-radiohelsinkifi.json
-Unit=rh-rnp-stationdata.service
-
-[Install]
-WantedBy=multi-user.target

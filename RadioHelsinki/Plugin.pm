@@ -16,6 +16,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Strings qw(cstring);
 
 use Plugins::RadioHelsinki::API;
+use Plugins::RadioHelsinki::Live;
 use Plugins::RadioHelsinki::Metadata;
 use Plugins::RadioHelsinki::Search;
 use Plugins::RadioHelsinki::Parser;
@@ -37,6 +38,16 @@ sub initPlugin {
 	my $class = shift;
 
 	Plugins::RadioHelsinki::Metadata->init();
+	Plugins::RadioHelsinki::Live->init();
+
+	# Settings page (Settings → Advanced → Radio Helsinki). Guarded by eval
+	# rather than main::WEB_UI — this LMS build doesn't define that constant,
+	# and a bareword blows up the whole plugin load under strict.
+	eval {
+		require Plugins::RadioHelsinki::Settings;
+		Plugins::RadioHelsinki::Settings->new;
+	};
+	$log->error("settings page failed to register: $@") if $@;
 
 	# The episode info inside the now-playing "song info" view, for any of our
 	# tracks — wrapped or legacy plain URL alike.

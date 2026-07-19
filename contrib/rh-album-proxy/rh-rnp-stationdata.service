@@ -1,9 +1,0 @@
-[Unit]
-Description=Re-apply customised RadioNowPlaying station file for Radio Helsinki
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/rh-rnp-apply.sh
-
-[Install]
-WantedBy=multi-user.target

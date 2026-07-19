@@ -322,12 +322,18 @@ sub _parseCurrentProgram {
 
 	my $span = _timeSpan( $c->{begin}, $c->{end} );
 
+	# Slot times as epochs too — Live.pm draws the programme-position bar
+	# from them when no song is playing.
+	my $begin = _epoch( $c->{begin} );
+	my $end   = _epoch( $c->{end} );
+
 	return {
 		progid => $c->{prog},
 		title  => _clean( $c->{program_title} ),
 		hosts  => $hosts,
 		desc   => _cleanLong( $c->{description} ) || _cleanLong( $c->{description_short} ),
 		$span ? ( span => $span ) : (),
+		( $begin && $end && $end > $begin ) ? ( begin => $begin, end => $end ) : (),
 		@next ? ( next => \@next ) : (),
 	};
 }

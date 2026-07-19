@@ -1,0 +1,19 @@
+[% PROCESS settings/header.html %]
+
+[% WRAPPER setting title="PLUGIN_RADIOHELSINKI_LIVE_META" desc="PLUGIN_RADIOHELSINKI_LIVE_META_DESC" %]
+	<input type="checkbox" name="pref_livemeta" id="livemeta" value="1" [% IF prefs.pref_livemeta %]checked[% END %]>
+[% END %]
+
+[% WRAPPER setting title="PLUGIN_RADIOHELSINKI_LISTEN_DELAY" desc="PLUGIN_RADIOHELSINKI_LISTEN_DELAY_DESC" %]
+	<input type="text" class="stdedit" name="pref_listendelay" id="listendelay" value="[% prefs.pref_listendelay %]" size="4">
+[% END %]
+
+[% WRAPPER setting title="PLUGIN_RADIOHELSINKI_POLL" desc="PLUGIN_RADIOHELSINKI_POLL_DESC" %]
+	<input type="text" class="stdedit" name="pref_pollinterval" id="pollinterval" value="[% prefs.pref_pollinterval %]" size="4">
+[% END %]
+
+[% WRAPPER setting title="PLUGIN_RADIOHELSINKI_GRACE" desc="PLUGIN_RADIOHELSINKI_GRACE_DESC" %]
+	<input type="text" class="stdedit" name="pref_songgrace" id="songgrace" value="[% prefs.pref_songgrace %]" size="4">
+[% END %]
+
+[% PROCESS settings/footer.html %]

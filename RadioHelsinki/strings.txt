@@ -152,3 +152,35 @@ PLUGIN_RADIOHELSINKI_ON_AIR
 PLUGIN_RADIOHELSINKI_UPCOMING
 	EN	Coming up
 	FI	Tulossa
+
+PLUGIN_RADIOHELSINKI_LISTEN_DELAY
+	EN	Listening delay (seconds)
+	FI	Kuunteluviive (sekuntia)
+
+PLUGIN_RADIOHELSINKI_LISTEN_DELAY_DESC
+	EN	How far the audio you hear runs behind the broadcast (network and player buffering). The live stream's progress bars and song changes are shifted by this so they match what you hear. Typical values 5-10.
+	FI	Kuinka paljon kuulemasi ääni on lähetystä jäljessä (verkon ja soittimen puskurointi). Suoran lähetyksen edistymispalkit ja kappaleenvaihdot siirretään tämän verran vastaamaan kuulemaasi. Tyypillisesti 5-10.
+
+PLUGIN_RADIOHELSINKI_LIVE_META
+	EN	Live-stream now-playing from this plugin
+	FI	Suoran lähetyksen kappaletiedot tästä lisäosasta
+
+PLUGIN_RADIOHELSINKI_LIVE_META_DESC
+	EN	Show song, programme and cover information for the live stream from this plugin. Untick to let another plugin (e.g. RadioNowPlaying) handle it instead. Takes effect after a server restart.
+	FI	Näytä suoran lähetyksen kappale-, ohjelma- ja kansitiedot tästä lisäosasta. Poista valinta, jos haluat toisen lisäosan (esim. RadioNowPlaying) hoitavan ne. Tulee voimaan palvelimen uudelleenkäynnistyksessä.
+
+PLUGIN_RADIOHELSINKI_POLL
+	EN	Now-playing update interval (seconds)
+	FI	Kappaletietojen päivitysväli (sekuntia)
+
+PLUGIN_RADIOHELSINKI_POLL_DESC
+	EN	How often the station's song log is checked while the live stream plays (2-30). Lower is faster but works the station's site harder.
+	FI	Kuinka usein aseman kappalelokia luetaan suoraa lähetystä soitettaessa (2-30). Pienempi arvo päivittää nopeammin mutta kuormittaa aseman sivustoa enemmän.
+
+PLUGIN_RADIOHELSINKI_GRACE
+	EN	Keep a song displayed past its length (seconds)
+	FI	Näytä kappale pituutensa jälkeenkin (sekuntia)
+
+PLUGIN_RADIOHELSINKI_GRACE_DESC
+	EN	A song stays on screen this long past its nominal length when the station has not logged the next one; after that the programme is shown (0-600).
+	FI	Kappale pysyy näkyvissä näin kauan nimellispituutensa jälkeen, jos asema ei ole kirjannut seuraavaa; sen jälkeen näytetään ohjelma (0-600).

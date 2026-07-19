@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.4.0 — 2026-07-19
+
+- Live-stream now-playing is handled by the plugin itself: while the stream
+  plays, the station's own song log is polled every few seconds and the
+  player shows the current song (title, artist, album), its real position
+  and length on the progress bar, and cover art — the album cover when the
+  iTunes catalogue knows the song, the programme's cover otherwise. Between
+  songs (or when the DJ isn't logging) the display falls back to the
+  programme and its hosts. The station line always names the programme.
+- Song info lands on the player about 4 s after the station publishes it
+  (the station's own log runs ~5-8 s behind the air signal).
+- Works out of the box for every user of this plugin. RadioNowPlaying is no
+  longer needed for Radio Helsinki: when both are installed this plugin wins
+  the live stream deterministically (plugins register alphabetically and the
+  first matching metadata provider is used), RadioNowPlaying stays fully
+  dormant for this station while continuing to serve any other station, and
+  it takes over again automatically if this plugin is removed. Favourites
+  and presets keep their URLs.
+- The contrib/rh-album-proxy stack (local feed proxy, stationdata overrides,
+  RadioNowPlaying patch and its systemd self-healing) is superseded and
+  removed from the tree; it remains in the git history for reference.
+
 ## 1.3.0 — 2026-07-15
 
 - "Nyt soi" in the live stream's song info: shows the programme on air right
